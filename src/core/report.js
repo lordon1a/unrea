@@ -31,6 +31,7 @@ export function buildResult(scanResult) {
     findings: scanResult.findings,
     mode: scanResult.mode === 'source' ? 'source' : 'build',
     surfaces: Array.isArray(scanResult.surfaces) ? [...scanResult.surfaces] : [],
+    ...(scanResult.engine ? { engine: scanResult.engine } : {}),
   };
 }
 

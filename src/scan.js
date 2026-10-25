@@ -19,12 +19,37 @@ export async function scan(targetPath, options = {}) {
     const surfaces = detected.map((surface) => surface.id).sort();
     const found = [];
 
+    // A surface may claim paths it understands better (Unity owns *_Data/Managed, MonoBleedingEdge...).
+    // Other surfaces' findings on claimed files are dropped, except secrets, which always count.
+    const owners = detected.filter((surface) => typeof surface.owns === 'function');
+    const ownerOf = (file) => {
+      if (!file) return null;
+      return owners.find((surface) => surface.owns(file, context)) || null;
+    };
+
     for (const surface of detected) {
       const results = await surface.run(context);
       for (const result of results || []) {
         if (!result || !result.id) continue;
-        found.push(normalizeFinding(result, context.fileByPath.get(result.file)));
+        const file = context.fileByPath.get(result.file);
+        const owner = ownerOf(file);
+        if (
+          owner &&
+          owner.id !== surface.id &&
+          !result.id.startsWith('secret.') &&
+          !(owner.sharedIds || []).includes(result.id)
+        ) {
+          continue;
+        }
+        found.push(normalizeFinding(result, file));
       }
+    }
+
+    let engine = null;
+    for (const surface of detected) {
+      if (typeof surface.info !== 'function') continue;
+      const info = await surface.info(context);
+      if (info) engine = { ...(engine || {}), ...info };
     }
 
     const seen = new Set();
@@ -50,6 +75,7 @@ export async function scan(targetPath, options = {}) {
       durationMs: Date.now() - started,
       mode: context.mode,
       surfaces,
+      engine,
     };
   } finally {
     await cleanup();

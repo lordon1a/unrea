@@ -110,10 +110,13 @@ export function buildSyntheticPE() {
   buffer.write(version, metadataRaw + 16, 'ascii');
   const streamHeader = (metadataRaw + 16 + version.length + 3) & ~3;
   u16(streamHeader, 0); // flags
-  u16(streamHeader + 2, 1); // one stream
-  u32(streamHeader + 4, 0x80); // #Strings offset relative to metadata root
-  u32(streamHeader + 8, 0x80);
-  buffer.write('#Strings', streamHeader + 12, 'ascii');
+  u16(streamHeader + 2, 2); // two streams, real variable-length headers
+  u32(streamHeader + 4, 0x60); // "#~" tables stream (name padded to 4 bytes)
+  u32(streamHeader + 8, 0x10);
+  buffer.write('#~\0\0', streamHeader + 12, 'ascii');
+  u32(streamHeader + 16, 0x80); // #Strings offset relative to metadata root
+  u32(streamHeader + 20, 0x80);
+  buffer.write('#Strings\0\0\0\0', streamHeader + 24, 'ascii');
   buffer.write('Main\0Program\0<Module>\0', metadataRaw + 0x80, 'ascii');
 
   // Data directories: import, certificate (file offset), CLI.

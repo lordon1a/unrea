@@ -94,15 +94,16 @@ function parseDotnet(buffer, metadataRva, sections, sizeOfHeaders) {
 
   const streams = {};
   for (let i = 0; i < streamCount; i++) {
-    if (cursor + 40 > buffer.length) break;
+    // Stream header: offset(4) + size(4) + NUL-terminated name padded to a 4-byte boundary.
+    if (cursor + 12 > buffer.length) break;
     const offset = readU32(buffer, cursor);
     const size = readU32(buffer, cursor + 4);
-    const name = buffer
-      .subarray(cursor + 8, cursor + 40)
-      .toString('utf8')
-      .split('\0')[0];
+    const rawName = buffer.subarray(cursor + 8, Math.min(buffer.length, cursor + 40));
+    const zero = rawName.indexOf(0);
+    if (zero === -1) break;
+    const name = rawName.subarray(0, zero).toString('utf8');
     if (name) streams[name] = { offset, size };
-    cursor += 40;
+    cursor += 8 + ((zero + 1 + 3) & ~3);
   }
 
   const strings = [];

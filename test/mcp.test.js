@@ -152,7 +152,10 @@ test('MCP lists surfaces and detection', { timeout: 30000 }, async (t) => {
   const allResult = await client.callTool({ name: 'unrea_surfaces', arguments: {} });
   const all = JSON.parse(toolText(allResult));
   assert.ok(Array.isArray(all));
-  assert.deepEqual(all.map((surface) => surface.id).sort(), ['electron', 'generic']);
+  // New surfaces are auto-discovered, so only the always-present ones are pinned here.
+  const ids = all.map((surface) => surface.id);
+  assert.ok(ids.includes('electron') && ids.includes('generic'));
+  assert.equal(new Set(ids).size, ids.length);
   for (const surface of all) {
     assert.equal(typeof surface.title, 'string');
     assert.ok(Array.isArray(surface.covers));

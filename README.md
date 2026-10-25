@@ -1,19 +1,37 @@
-# unrea
+# unrea — anti reverse engineering scanner for AI-era apps
 
-**See your own built app the way a reverse-engineering agent would.**
+[![npm](https://img.shields.io/npm/v/@yigitguldal/unrea?color=cb3837&label=npm)](https://www.npmjs.com/package/@yigitguldal/unrea)
+[![license](https://img.shields.io/github/license/lordon1a/unrea)](LICENSE)
+[![node](https://img.shields.io/node/v/@yigitguldal/unrea)](package.json)
+[![MCP](https://img.shields.io/badge/MCP-Claude%20Code%20%7C%20Codex%20%7C%20OpenCode-6e56cf)](#use-it-from-your-ai-agent)
 
-`unrea` is a defensive scanner for Electron and JavaScript builds. Point it at
-`win-unpacked`, an installed app folder, `dist/`, or a single `.asar` file, and
-it lists what a curious human (or an AI agent like REA) can learn in seconds:
-leaked keys, shipped source maps, dotenv files, readable bundles, internal
-endpoints, client-side license checks, shipped tests and weak Electron fuses.
+**AI agents like [REA](https://github.com/morluto/rea) can take apart an Electron app, a .NET tool or a Unity game in minutes. unrea shows you what they would find in *your* build, and your own agent fixes it before you ship.**
 
-v0.3 also ships an MCP server and a skill, so Claude Code, Codex and OpenCode
-can scan, understand and fix a build without leaving the agent. The scanner
-never edits the target; setup only writes the client config and skill you ask
-for, and no unrea code calls the network.
+```bash
+npx @yigitguldal/unrea scan ./dist
+```
 
-Requires Node.js **22.12 or newer**.
+- **Finds what leaks:** API keys and tokens, `.env` files, source maps, shipped tests and debug symbols, readable code and names (JS, .NET, Unity Mono), unencrypted Godot exports, unsigned or unhardened executables, weak Electron fuses.
+- **Built for agents:** an MCP server + skill for Claude Code, Codex and OpenCode. Your agent scans, explains each finding and applies the fix.
+- **Honest:** obfuscation only slows attackers down. unrea pushes you toward the fix that holds up: secrets and valuable logic on your server, so a cracked client gets the attacker nothing.
+- **Read-only and offline:** it never edits your build and never calls the network. Secrets are masked in every output.
+
+
+## Why
+
+Reverse engineering used to take a skilled person and a weekend. Now an agent with an MCP toolkit unpacks `app.asar`, greps every string, decompiles your DLLs and writes up the result. "Nobody will bother" doesn't hold anymore. Most leaks are boring: a key in a bundle, a `.map` file, a test folder nobody excluded. unrea catches them in seconds, while they're still cheap to fix.
+
+## What's covered
+
+| Target | Status |
+| --- | --- |
+| Electron / JavaScript (`asar`, bundles, fuses) | ✅ |
+| Any build: keys, `.env`, source maps, tests, internal endpoints | ✅ |
+| Unity (Mono / IL2CPP), Godot export settings, .NET, PyInstaller, Windows PE | ✅ |
+| Android APK, Flutter, Apple bundles, ELF / Mach-O | 🚧 next |
+| Web builds, WASM, shipped databases, recorded traffic | 🗺️ planned |
+
+The goal is to cover everything REA can analyze, with a defender module for each. See [ROADMAP.md](ROADMAP.md).
 
 ## Use it from your AI agent
 
@@ -98,7 +116,7 @@ output instead. In that mode it skips `node_modules` and does not emit
 ### Sample output
 
 ```text
-unrea 0.3.0 - client exposure scan
+unrea 0.4.0 - client exposure scan
 target: dist
 surfaces: electron, generic
 files scanned: 664
@@ -168,6 +186,22 @@ reported as info with a `[vendor code]` prefix. Vendor paths also skip
 `code.readable` and downgrade `sourcemap.comment`, since that is third-party
 code rather than yours.
 
+### Engine and binary surfaces
+
+Surfaces are auto-detected; `unrea_surfaces` (MCP) lists them. Each one adds its own checks:
+
+| Surface | Check IDs |
+| --- | --- |
+| `unity` | `unity.mono`, `unity.il2cpp.metadata`, `unity.debug_shipped`, `unity.names`, `unity.client_authority`, `unity.plugins`, `unity.saves` |
+| `godot` | `godot.encryption_off`, `godot.directory_unencrypted`, `godot.script_text`, `godot.key_in_repo`, `godot.config_shipped`, `godot.encryption_unknown` (reads your export settings; never opens the `.pck`) |
+| `dotnet` | `dotnet.readable`, `dotnet.obfuscated`, `dotnet.sensitive_names`, `dotnet.pdb_shipped`, `dotnet.unsigned`, `dotnet.appsettings_shipped` |
+| `pyinstaller` | `pyinstaller.bytecode`, `pyinstaller.source_shipped`, `pyinstaller.spec_shipped`, `pyinstaller.python_version` |
+| `pe-native` | `pe-native.unsigned`, `pe-native.no_aslr`, `pe-native.no_dep`, `pe-native.no_cfg`, `pe-native.debug_info`, `pe-native.go_buildinfo`, `pe-native.rust_paths`, plus secret scanning of embedded strings |
+
+When two surfaces see the same file, the more specific one owns it. Unity owns
+`*_Data/Managed`, `MonoBleedingEdge/` and its engine DLLs, so you don't get
+generic noise about Unity's own files. Secrets are always reported.
+
 ## Honest limits
 
 - **Obfuscation slows, doesn't stop.** Minifying or obfuscating raises the cost
@@ -194,6 +228,20 @@ Tests use `node:test`, build fixtures in the OS temp directory, create a real
 `.asar` with `@electron/asar`, and drive the MCP server with the official SDK
 over stdio. Setup tests always set `UNREA_HOME` to a temp directory. No network
 access is required.
+
+## FAQ
+
+**Can unrea make my app impossible to crack?**
+No, and nothing can. Code running on the user's machine can always be read. unrea helps you make sure that what an attacker gets is worthless: no keys, no server-side rules, no free unlocks.
+
+**Is this an attacking tool?**
+No. It only reads builds you point it at, and it's meant for your own apps. It doesn't patch, crack or bypass anything.
+
+**Do I need REA installed?**
+No. unrea runs on its own. A future `unrea attack` mode will be able to drive REA against your own build if you have it installed.
+
+**Does it send my code anywhere?**
+No. There are no network calls, and scanning happens locally.
 
 ## License
 
