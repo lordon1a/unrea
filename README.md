@@ -16,9 +16,9 @@ for, and no unrea code calls the network.
 ## Use it from your AI agent
 
 ```bash
-npx unrea setup --client claude_code   # prints the claude mcp add command + copies the skill
-npx unrea setup --client codex         # merges ~/.codex/config.toml
-npx unrea setup --client opencode      # merges ~/.config/opencode/opencode.json
+npx @yigitguldal/unrea setup --client claude_code   # prints the claude mcp add command + copies the skill
+npx @yigitguldal/unrea setup --client codex         # merges ~/.codex/config.toml
+npx @yigitguldal/unrea setup --client opencode      # merges ~/.config/opencode/opencode.json
 ```
 
 Add `--dry-run` to see every write first, or `--json` for machine-readable
@@ -29,7 +29,7 @@ Where it writes:
 
 | Client | MCP registration | Skill |
 | --- | --- | --- |
-| `claude_code` | Prints `claude mcp add unrea -- npx -y unrea@<version> mcp`; does not edit `.claude.json` | `~/.claude/skills/unrea/SKILL.md` |
+| `claude_code` | Prints `claude mcp add unrea -- npx -y @yigitguldal/unrea@<version> mcp`; does not edit `.claude.json` | `~/.claude/skills/unrea/SKILL.md` |
 | `codex` | `[mcp_servers.unrea]` in `~/.codex/config.toml` (backup `.unrea.bak`) | `~/.agents/skills/unrea/SKILL.md` |
 | `opencode` | `mcp.unrea` in `~/.config/opencode/opencode.json` (backup `.unrea.bak`) | `~/.agents/skills/unrea/SKILL.md` |
 
@@ -68,10 +68,10 @@ follow while writing code and the release loop above.
 ## CLI
 
 ```bash
-npx unrea scan ./dist
-npx unrea scan ./dist/win-unpacked --json
-npx unrea scan ./MyApp/resources/app.asar --verbose --fail-on critical
-npx unrea mcp                         # stdio MCP server (normally launched by the client)
+npx @yigitguldal/unrea scan ./dist
+npx @yigitguldal/unrea scan ./dist/win-unpacked --json
+npx @yigitguldal/unrea scan ./MyApp/resources/app.asar --verbose --fail-on critical
+npx @yigitguldal/unrea mcp                         # stdio MCP server (normally launched by the client)
 ```
 
 Options:

@@ -1,5 +1,5 @@
 {
-  "name": "unrea",
+  "name": "@yigitguldal/unrea",
   "version": "0.2.0",
   "description": "Defensive client-exposure scanner with an MCP server for AI coding agents.",
   "type": "module",

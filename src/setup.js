@@ -9,7 +9,7 @@ const CLIENTS = new Set(['claude_code', 'codex', 'opencode']);
 export const SETUP_CLIENTS = [...CLIENTS];
 
 function mcpCommand(version) {
-  return ['npx', '-y', `unrea@${version}`, 'mcp'];
+  return ['npx', '-y', `@yigitguldal/unrea@${version}`, 'mcp'];
 }
 
 async function exists(filePath) {
@@ -75,7 +75,7 @@ async function claudeSetup(home, version, dryRun) {
     ),
     notes: [
       'Claude Code registration is manual: run the printed claude command once.',
-      'To track the latest release instead of pinning, use: claude mcp add unrea -- npx -y unrea mcp',
+      'To track the latest release instead of pinning, use: claude mcp add unrea -- npx -y @yigitguldal/unrea mcp',
     ],
   };
 }

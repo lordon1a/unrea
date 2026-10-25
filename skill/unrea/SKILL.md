@@ -25,7 +25,7 @@ Use unrea to look at your own build the way an AI reverse-engineering agent
 
 1. Build the app.
 2. Call MCP tool `unrea_scan` with the build path. Or run
-   `npx unrea scan <path>` in a terminal.
+   `npx @yigitguldal/unrea scan <path>` in a terminal.
 3. For each high/critical finding, call `unrea_explain` with the id, then
    `unrea_fix_plan` with the project path and id.
 4. Apply the plan yourself. unrea never edits files.
