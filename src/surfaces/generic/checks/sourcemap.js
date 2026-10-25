@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { safeSnippet } from '../secrets.js';
+import { safeSnippet } from '../../../core/secrets.js';
 
 const COMMENT_RE = /\/\/[#@]\s*sourceMappingURL=(\S+)/g;
 const BLOCK_COMMENT_RE = /\/\*[#@]\s*sourceMappingURL=([^*\s]+)\s*\*\//g;

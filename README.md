@@ -56,9 +56,10 @@ Stop when there are no high or critical findings.
 
 | Tool | What it does |
 | --- | --- |
-| `unrea_scan` | `{path, min_severity?, max_findings?}` → grade, mode (`build`/`source`), severity counts, top fixes, masked findings. Defaults: medium, 50. |
+| `unrea_scan` | `{path, min_severity?, max_findings?}` → grade, mode (`build`/`source`), detected surfaces, severity counts, top fixes, masked findings. Defaults: medium, 50. |
 | `unrea_explain` | `{id}` → what the check is, how an attacker's agent finds it, real risk and fix. Unknown ids list known ids. |
 | `unrea_fix_plan` | `{path, id}` → apply-ready fuse hook, electron-builder exclusions, source-map flags, server proxy or license outline. |
+| `unrea_surfaces` | `{path?}` → installed surfaces `{id, title, covers}`; with a path, each also gets `detected`. |
 
 `unrea_scan` honors `min_severity` and `max_findings` for the `findings` array;
 `summary`, `grade` and `top_fixes` always describe the full scan. Secrets stay
@@ -80,7 +81,7 @@ Options:
 
 | Option | Meaning |
 | --- | --- |
-| `--json` | Machine-readable output (always complete; includes `mode`) |
+| `--json` | Machine-readable output (always complete; includes `mode` and `surfaces`) |
 | `--verbose` | List every finding in text mode (no collapsing or 5-row cap) |
 | `--source` | Force source-repo mode: skip `node_modules`, no `tests.shipped`, print a warning |
 | `--build` | Force build mode even if the folder looks like a source repo |
@@ -99,6 +100,7 @@ output instead. In that mode it skips `node_modules` and does not emit
 ```text
 unrea 0.3.0 - client exposure scan
 target: dist
+surfaces: electron, generic
 files scanned: 664
 duration: 812 ms
 grade: F (1 critical)

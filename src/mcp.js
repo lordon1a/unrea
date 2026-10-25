@@ -4,7 +4,9 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-import { buildResult, countBySeverity, topFixes } from './report.js';
+import { buildResult, countBySeverity, topFixes } from './core/report.js';
+import { loadSurfaces } from './core/surfaces.js';
+import { createScanContext } from './core/walk.js';
 import { scan } from './scan.js';
 import { explain } from './explain.js';
 import { buildFixPlan } from './fix-plan.js';
@@ -32,6 +34,7 @@ async function scanPayload({ path, min_severity = 'medium', max_findings = 50 })
   return {
     grade: result.grade,
     mode: result.mode,
+    surfaces: result.surfaces,
     scanned: result.scanned,
     summary: {
       critical: counts.critical,
@@ -121,6 +124,51 @@ export function createMcpServer() {
         return textResult(plan.text, !plan.ok);
       } catch (error) {
         return textResult(`unrea_fix_plan failed: ${error.message}`, true);
+      }
+    },
+  );
+
+  server.registerTool(
+    'unrea_surfaces',
+    {
+      title: 'List unrea surfaces',
+      description:
+        'List the installed analysis surfaces (id, title, covers). If path is given, also report whether each surface detects that target.',
+      inputSchema: {
+        path: z
+          .string()
+          .min(1)
+          .optional()
+          .describe('Optional target path used to run cheap surface detection'),
+      },
+    },
+    async ({ path }) => {
+      try {
+        const surfaces = await loadSurfaces();
+        let detected = null;
+        if (path) {
+          const built = await createScanContext(path);
+          detected = new Set();
+          try {
+            for (const surface of surfaces) {
+              if (typeof surface.detect !== 'function' || (await surface.detect(built.context))) {
+                detected.add(surface.id);
+              }
+            }
+          } finally {
+            await built.cleanup();
+          }
+        }
+
+        const list = surfaces.map((surface) => ({
+          id: surface.id,
+          title: surface.title,
+          covers: surface.covers,
+          ...(path ? { detected: detected.has(surface.id) } : {}),
+        }));
+        return textResult(JSON.stringify(list, null, 2));
+      } catch (error) {
+        return textResult(`unrea_surfaces failed: ${error.message}`, true);
       }
     },
   );

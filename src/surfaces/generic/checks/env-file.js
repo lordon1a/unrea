@@ -1,4 +1,4 @@
-import { scanSecrets } from '../secrets.js';
+import { scanSecrets } from '../../../core/secrets.js';
 
 /**
  * env.file — a dotenv file was shipped with the app. Critical when it actually

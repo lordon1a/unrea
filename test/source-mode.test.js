@@ -27,6 +27,7 @@ test('auto-detects a source repo, skips node_modules and tests.shipped', async (
 
   const result = await scan(dir);
   assert.equal(result.mode, 'source');
+  assert.deepEqual(result.surfaces, ['electron', 'generic']);
   assert.equal(result.scanned, 3); // package.json, src/main.js, test/unit.test.js
   assert.equal(result.findings.filter((f) => f.file.includes('node_modules')).length, 0);
   assert.equal(result.findings.filter((f) => f.id === 'tests.shipped').length, 0);

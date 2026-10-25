@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import process from 'node:process';
 
 import { scan } from '../src/scan.js';
-import { buildResult, failsThreshold, formatText } from '../src/report.js';
+import { buildResult, failsThreshold, formatText } from '../src/core/report.js';
 import { formatSetupText, runSetup, SETUP_CLIENTS } from '../src/setup.js';
 
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));

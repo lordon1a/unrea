@@ -1,4 +1,4 @@
-import { scanSecrets } from '../secrets.js';
+import { scanSecrets } from '../../../core/secrets.js';
 
 /**
  * secret.* — live provider keys, JWTs and high-entropy literals assigned to

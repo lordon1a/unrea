@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -49,30 +48,6 @@ const FUSE_RULES = [
     id: 'electron.fuses.node_options',
   },
 ];
-
-/**
- * Could this path be an Electron executable? Windows builds have .exe files,
- * Linux builds have an extensionless binary next to resources/app.asar, and
- * macOS builds live in <App>.app/Contents/MacOS/<binary>.
- *
- * @param {string} absPath
- * @param {string} [name]
- * @returns {boolean}
- */
-export function isCandidate(absPath, name = path.basename(absPath)) {
-  if (/\.exe$/i.test(name)) return true;
-  if (name.includes('.')) return false;
-
-  const directory = path.dirname(absPath);
-  if (existsSync(path.join(directory, 'resources', 'app.asar'))) return true;
-
-  const parent = path.basename(directory).toLowerCase();
-  const grandParent = path.basename(path.dirname(directory)).toLowerCase();
-  const bundle = path
-    .basename(path.dirname(path.dirname(directory)))
-    .toLowerCase();
-  return parent === 'macos' && grandParent === 'contents' && bundle.endsWith('.app');
-}
 
 /**
  * @electron/fuses redirects any path containing ".app" to the Electron

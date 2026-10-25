@@ -42,12 +42,21 @@ test('JSON result has exactly the documented shape', () => {
     scanned: 3,
     durationMs: 12,
     mode: 'source',
+    surfaces: ['generic'],
   });
-  assert.deepEqual(Object.keys(result), ['grade', 'scanned', 'durationMs', 'findings', 'mode']);
+  assert.deepEqual(Object.keys(result), [
+    'grade',
+    'scanned',
+    'durationMs',
+    'findings',
+    'mode',
+    'surfaces',
+  ]);
   assert.equal(result.grade, 'D');
   assert.equal(result.scanned, 3);
   assert.equal(result.durationMs, 12);
   assert.equal(result.mode, 'source');
+  assert.deepEqual(result.surfaces, ['generic']);
 });
 
 test('text report groups by severity and prints two lines per finding', () => {
@@ -76,12 +85,14 @@ test('source mode prints a top warning', () => {
     scanned: 0,
     durationMs: 1,
     mode: 'source',
+    surfaces: ['generic'],
   });
   const text = formatText(result, { target: 'my-repo' });
   assert.match(
     text,
     /WARNING: this looks like a source folder, scan your BUILD output \(dist\/, win-unpacked\/, the installed app\)/,
   );
+  assert.match(text, /surfaces: generic/);
   assert.ok(
     text.indexOf('WARNING:') < text.indexOf('files scanned:'),
     'warning should be near the top of the report',

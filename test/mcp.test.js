@@ -67,7 +67,7 @@ test('MCP lists tools, scans, caps and keeps secrets masked', { timeout: 30000 }
   const { tools } = await client.listTools();
   assert.deepEqual(
     tools.map((tool) => tool.name).sort(),
-    ['unrea_explain', 'unrea_fix_plan', 'unrea_scan'],
+    ['unrea_explain', 'unrea_fix_plan', 'unrea_scan', 'unrea_surfaces'],
   );
 
   const scanResult = await client.callTool({
@@ -78,6 +78,7 @@ test('MCP lists tools, scans, caps and keeps secrets masked', { timeout: 30000 }
   const payload = JSON.parse(text);
   assert.equal(payload.grade, 'F');
   assert.equal(payload.mode, 'build');
+  assert.deepEqual(payload.surfaces, ['generic']);
   assert.equal(payload.scanned, 1);
   assert.equal(payload.summary.critical, 2); // env.file + secret.openai
   assert.equal(payload.truncated, false);
@@ -139,6 +140,43 @@ test('MCP explains known ids and lists known ids for unknown ones', { timeout: 3
   assert.match(unknown, /Unknown check id/);
   assert.match(unknown, /secret\.openai/);
   assert.match(unknown, /tests\.shipped/);
+});
+
+test('MCP lists surfaces and detection', { timeout: 30000 }, async (t) => {
+  const dir = await makeTemp('unrea-mcp-surfaces-');
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await writeAt(dir, 'src/main.js', 'export const ok = true;\n');
+
+  const client = await connect(t);
+
+  const allResult = await client.callTool({ name: 'unrea_surfaces', arguments: {} });
+  const all = JSON.parse(toolText(allResult));
+  assert.ok(Array.isArray(all));
+  assert.deepEqual(all.map((surface) => surface.id).sort(), ['electron', 'generic']);
+  for (const surface of all) {
+    assert.equal(typeof surface.title, 'string');
+    assert.ok(Array.isArray(surface.covers));
+    assert.ok(!('detected' in surface));
+  }
+
+  const detectedResult = await client.callTool({
+    name: 'unrea_surfaces',
+    arguments: { path: dir },
+  });
+  const detected = JSON.parse(toolText(detectedResult));
+  assert.equal(detected.find((surface) => surface.id === 'generic').detected, true);
+  assert.equal(detected.find((surface) => surface.id === 'electron').detected, true);
+
+  const envDir = await makeTemp('unrea-mcp-surfaces-env-');
+  t.after(() => rm(envDir, { recursive: true, force: true }));
+  await writeAt(envDir, '.env', 'DEBUG=true\n');
+  const envResult = await client.callTool({
+    name: 'unrea_surfaces',
+    arguments: { path: envDir },
+  });
+  const envDetected = JSON.parse(toolText(envResult));
+  assert.equal(envDetected.find((surface) => surface.id === 'generic').detected, true);
+  assert.equal(envDetected.find((surface) => surface.id === 'electron').detected, false);
 });
 
 test('MCP fix plan detects electron-builder and returns apply-ready text', { timeout: 30000 }, async (t) => {

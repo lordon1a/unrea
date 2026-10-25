@@ -40,3 +40,5 @@ removing it from the next build is not enough.
 - `unrea_explain` - what a check means, how an attacker finds it, how to fix it.
 - `unrea_fix_plan` - concrete fuse hook, package exclusions, proxy or license
   outline for the agent to apply.
+- `unrea_surfaces` - list installed analysis surfaces and whether they detect a
+  given path.

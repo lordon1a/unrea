@@ -65,6 +65,7 @@ test('scans a built app directory including asar contents', async (t) => {
   const result = await scan(dir);
   const byId = (id) => result.findings.filter((f) => f.id === id);
 
+  assert.deepEqual(result.surfaces, ['electron', 'generic']);
   assert.ok(result.scanned >= 8, `expected several files scanned, got ${result.scanned}`);
   assert.equal(byId('asar.plain').length, 1);
   assert.equal(byId('asar.plain')[0].severity, 'info');
@@ -240,9 +241,17 @@ test('CLI prints a graded report, JSON, and honors fail-on', async (t) => {
   const jsonRun = spawnSync(process.execPath, [cli, 'scan', dir, '--json'], { encoding: 'utf8' });
   assert.equal(jsonRun.status, 1);
   const parsed = JSON.parse(jsonRun.stdout);
-  assert.deepEqual(Object.keys(parsed), ['grade', 'scanned', 'durationMs', 'findings', 'mode']);
+  assert.deepEqual(Object.keys(parsed), [
+    'grade',
+    'scanned',
+    'durationMs',
+    'findings',
+    'mode',
+    'surfaces',
+  ]);
   assert.equal(parsed.grade, 'F');
   assert.equal(parsed.mode, 'build');
+  assert.deepEqual(parsed.surfaces, ['generic']);
   assert.ok(parsed.scanned >= 1);
   assert.ok(!jsonRun.stdout.includes(fake.openai()), 'JSON output leaked a full secret');
 

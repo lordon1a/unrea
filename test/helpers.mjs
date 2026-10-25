@@ -50,3 +50,80 @@ export function fakeFuseBinary(states) {
     wire,
   ]);
 }
+
+/**
+ * Tiny valid PE32 image with an import, a certificate directory, a CLI header
+ * and a .NET metadata root with a #Strings heap. No binary is committed.
+ */
+export function buildSyntheticPE() {
+  const buffer = Buffer.alloc(0xc20);
+  const peOffset = 0x80;
+  const optionalStart = peOffset + 24;
+  const optionalSize = 0xe0;
+  const sectionTable = optionalStart + optionalSize;
+  const rawBase = 0x400;
+  const sectionRva = 0x1000;
+  const dataDirectoryStart = optionalStart + 96;
+
+  const u16 = (offset, value) => buffer.writeUInt16LE(value, offset);
+  const u32 = (offset, value) => buffer.writeUInt32LE(value, offset);
+
+  buffer.write('MZ', 0, 'ascii');
+  u32(0x3c, peOffset);
+  buffer.write('PE\0\0', peOffset, 'binary');
+  u16(peOffset + 4, 0x014c); // x86
+  u16(peOffset + 6, 1); // one section
+  u16(peOffset + 20, optionalSize);
+  u16(peOffset + 22, 0x0102);
+
+  u16(optionalStart, 0x10b); // PE32
+  u32(optionalStart + 16, sectionRva); // entry point
+  u32(optionalStart + 28, 0x400000); // image base
+  u32(optionalStart + 60, 0x400); // size of headers
+  u16(optionalStart + 68, 3); // console subsystem
+  u32(optionalStart + 92, 16); // data directories
+
+  // .text: import table, CLI header and metadata root all live here.
+  buffer.write('.text', sectionTable, 'ascii');
+  u32(sectionTable + 8, 0x800);
+  u32(sectionTable + 12, sectionRva);
+  u32(sectionTable + 16, 0x800);
+  u32(sectionTable + 20, rawBase);
+  u32(sectionTable + 36, 0x60000020);
+
+  // Import descriptor (20 bytes) + DLL name.
+  u32(rawBase + 12, sectionRva + 0x20);
+  buffer.write('KERNEL32.dll\0', rawBase + 0x20, 'ascii');
+
+  // CLI header at RVA 0x1100.
+  u32(rawBase + 0x100, 0x48);
+  u32(rawBase + 0x108, sectionRva + 0x200); // metadata RVA
+  u32(rawBase + 0x10c, 0x180); // metadata size
+
+  // Metadata root at RVA 0x1200.
+  const metadataRaw = rawBase + 0x200;
+  u32(metadataRaw, 0x424a5342); // BSJB
+  u16(metadataRaw + 4, 1);
+  u16(metadataRaw + 6, 1);
+  const version = 'v4.0.30319\0\0';
+  u32(metadataRaw + 12, version.length);
+  buffer.write(version, metadataRaw + 16, 'ascii');
+  const streamHeader = (metadataRaw + 16 + version.length + 3) & ~3;
+  u16(streamHeader, 0); // flags
+  u16(streamHeader + 2, 1); // one stream
+  u32(streamHeader + 4, 0x80); // #Strings offset relative to metadata root
+  u32(streamHeader + 8, 0x80);
+  buffer.write('#Strings', streamHeader + 12, 'ascii');
+  buffer.write('Main\0Program\0<Module>\0', metadataRaw + 0x80, 'ascii');
+
+  // Data directories: import, certificate (file offset), CLI.
+  u32(dataDirectoryStart + 1 * 8, sectionRva);
+  u32(dataDirectoryStart + 1 * 8 + 4, 40);
+  u32(dataDirectoryStart + 4 * 8, 0xc00);
+  u32(dataDirectoryStart + 4 * 8 + 4, 0x10);
+  u32(dataDirectoryStart + 14 * 8, sectionRva + 0x100);
+  u32(dataDirectoryStart + 14 * 8 + 4, 0x48);
+
+  buffer.write('CERT', 0xc00, 'ascii');
+  return buffer;
+}

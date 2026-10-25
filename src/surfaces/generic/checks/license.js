@@ -1,4 +1,4 @@
-import { safeSnippet } from '../secrets.js';
+import { safeSnippet } from '../../../core/secrets.js';
 
 const LICENSE_RE = /\b(isPro|isPremium|isLicensed|licenseValid|hasLicense|isTrial|trialExpired|isSubscribed|checkLicense|validateLicense)\b/;
 const MAX_PER_FILE = 5;

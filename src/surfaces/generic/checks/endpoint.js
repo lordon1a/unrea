@@ -1,5 +1,5 @@
-import { clip } from '../mask.js';
-import { redactSecrets } from '../secrets.js';
+import { clip } from '../../../core/mask.js';
+import { redactSecrets } from '../../../core/secrets.js';
 
 const URL_RE = /\b(?:https?|wss?):\/\/[^\s"'`<>)\]}]+/gi;
 
