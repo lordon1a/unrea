@@ -1,0 +1,8 @@
+// Demo input for `unrea scan test/fixtures-or-tmp`.
+// Contains no real credentials: just a client-side plan check and a staging URL.
+export function isProUser(user) {
+  const isPro = user.plan === 'pro';
+  return isPro;
+}
+
+export const STAGING_API = 'https://staging.example.com/api';

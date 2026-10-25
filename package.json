@@ -1,0 +1,39 @@
+{
+  "name": "unrea",
+  "version": "0.2.0",
+  "description": "Defensive client-exposure scanner with an MCP server for AI coding agents.",
+  "type": "module",
+  "bin": {
+    "unrea": "bin/unrea.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "electron",
+    "reverse-engineering",
+    "security",
+    "asar",
+    "scanner",
+    "mcp",
+    "ai-agents"
+  ],
+  "author": "lordon1a",
+  "license": "MIT",
+  "files": [
+    "bin",
+    "src",
+    "skill",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@electron/asar": "^3.4.1",
+    "@electron/fuses": "^1.8.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "zod": "4.6.7"
+  }
+}
