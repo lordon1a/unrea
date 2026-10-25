@@ -10,9 +10,11 @@ import { makeTemp, writeAt } from './helpers.mjs';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const cli = path.join(root, 'bin', 'unrea.js');
-const packageVersion = JSON.parse(
+const packageJson = JSON.parse(
   readFileSync(path.join(root, 'package.json'), 'utf8'),
-).version;
+);
+const packageVersion = packageJson.version;
+const PACKAGE_NAME = packageJson.name;
 
 async function runSetup(home, args) {
   return spawnSync(process.execPath, [cli, 'setup', ...args], {
@@ -37,15 +39,15 @@ test('setup dry-run writes nothing for every client', async (t) => {
     assert.equal(result.client, client);
     assert.equal(result.dryRun, true);
     assert.deepEqual(await readdir(home), [], 'dry run wrote files');
-    assert.deepEqual(result.mcp.command, ['npx', '-y', `@yigitguldal/unrea@${packageVersion}`, 'mcp']);
+    assert.deepEqual(result.mcp.command, ['npx', '-y', `${PACKAGE_NAME}@${packageVersion}`, 'mcp']);
     assert.equal(result.skill.status, 'would_copy');
     assert.ok(result.skill.target.startsWith(home));
 
     if (client === 'claude_code') {
       assert.equal(result.mcp.status, 'manual');
-      assert.match(
+      assert.equal(
         result.registrationCommand,
-        new RegExp(`^claude mcp add unrea -- npx -y @yigitguldal\/unrea@${packageVersion.replaceAll('.', '\\.')} mcp$`),
+        `claude mcp add unrea -- npx -y ${PACKAGE_NAME}@${packageVersion} mcp`,
       );
     } else {
       assert.ok(['would_create', 'would_merge'].includes(result.mcp.status));
@@ -69,7 +71,10 @@ test('setup codex merges TOML, backs up, and is idempotent', async (t) => {
   assert.match(config, /^# original\nmodel = "gpt-5"\n/m);
   assert.match(config, /^\[mcp_servers\.unrea\]$/m);
   assert.match(config, /^command = "npx"$/m);
-  assert.match(config, /^args = \["-y", "@yigitguldal\/unrea@0\.2\.0", "mcp"\]$/m);
+  assert.ok(
+    config.includes(`args = ["-y", "${PACKAGE_NAME}@${packageVersion}", "mcp"]`),
+    config,
+  );
   assert.equal((config.match(/\[mcp_servers\.unrea\]/g) || []).length, 1);
 
   const backup = await readFileSync(path.join(home, '.codex/config.toml.unrea.bak'), 'utf8');
@@ -112,7 +117,7 @@ test('setup opencode merges JSON, preserves keys, and is idempotent', async (t) 
   assert.deepEqual(config.mcp.other, { type: 'local', command: ['other'] });
   assert.deepEqual(config.mcp.unrea, {
     type: 'local',
-    command: ['npx', '-y', `@yigitguldal/unrea@${packageVersion}`, 'mcp'],
+    command: ['npx', '-y', `${PACKAGE_NAME}@${packageVersion}`, 'mcp'],
     enabled: true,
   });
 
@@ -146,7 +151,10 @@ test('setup claude_code copies the skill and never writes .claude.json', async (
   const first = parseSetup(await runSetup(home, ['--client', 'claude_code', '--json']));
   assert.equal(first.mcp.status, 'manual');
   assert.equal(first.mcp.configPath, null);
-  assert.match(first.registrationCommand, /^claude mcp add unrea -- npx -y @yigitguldal\/unrea@0\.2\.0 mcp$/);
+  assert.equal(
+    first.registrationCommand,
+    `claude mcp add unrea -- npx -y ${PACKAGE_NAME}@${packageVersion} mcp`,
+  );
 
   const skillPath = path.join(home, '.claude/skills/unrea/SKILL.md');
   assert.match(await readFileSync(skillPath, 'utf8'), /unrea_fix_plan/);

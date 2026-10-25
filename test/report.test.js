@@ -37,11 +37,17 @@ test('fail-on threshold treats none as never failing', () => {
 });
 
 test('JSON result has exactly the documented shape', () => {
-  const result = buildResult({ findings: [finding('high')], scanned: 3, durationMs: 12 });
-  assert.deepEqual(Object.keys(result), ['grade', 'scanned', 'durationMs', 'findings']);
+  const result = buildResult({
+    findings: [finding('high')],
+    scanned: 3,
+    durationMs: 12,
+    mode: 'source',
+  });
+  assert.deepEqual(Object.keys(result), ['grade', 'scanned', 'durationMs', 'findings', 'mode']);
   assert.equal(result.grade, 'D');
   assert.equal(result.scanned, 3);
   assert.equal(result.durationMs, 12);
+  assert.equal(result.mode, 'source');
 });
 
 test('text report groups by severity and prints two lines per finding', () => {
@@ -62,6 +68,24 @@ test('text report groups by severity and prints two lines per finding', () => {
   const criticalLocation = lines.findIndex((line) => line.includes('app.js:1'));
   assert.ok(criticalLocation > 0);
   assert.match(lines[criticalLocation + 1], /^ {4}fix: /);
+});
+
+test('source mode prints a top warning', () => {
+  const result = buildResult({
+    findings: [],
+    scanned: 0,
+    durationMs: 1,
+    mode: 'source',
+  });
+  const text = formatText(result, { target: 'my-repo' });
+  assert.match(
+    text,
+    /WARNING: this looks like a source folder, scan your BUILD output \(dist\/, win-unpacked\/, the installed app\)/,
+  );
+  assert.ok(
+    text.indexOf('WARNING:') < text.indexOf('files scanned:'),
+    'warning should be near the top of the report',
+  );
 });
 
 test('clean scan says A and no findings', () => {

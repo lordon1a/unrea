@@ -138,9 +138,9 @@ function fuseHookText(rules) {
   return `// build/afterPack.cjs
 // Apply the fuse in electron-builder afterPack. Run: npm i -D @electron/fuses
 const path = require('node:path');
-const { flipFuses, FuseVersion, FuseV1Options } = require('@electron/fuses');
 
 exports.default = async function afterPack(context) {
+  const { flipFuses, FuseVersion, FuseV1Options } = await import('@electron/fuses');
   const { appOutDir, packager, electronPlatformName } = context;
   const productName = packager.appInfo.productFilename;
   const executable = electronPlatformName === 'darwin'

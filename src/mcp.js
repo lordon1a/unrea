@@ -31,6 +31,7 @@ async function scanPayload({ path, min_severity = 'medium', max_findings = 50 })
 
   return {
     grade: result.grade,
+    mode: result.mode,
     scanned: result.scanned,
     summary: {
       critical: counts.critical,
@@ -58,7 +59,7 @@ export function createMcpServer() {
       title: 'Scan a built app for client-side exposure',
       description:
         'Scan a directory, win-unpacked folder or .asar file from a built Electron/JS app. ' +
-        'Returns grade, severity counts, top fixes and masked findings (default min severity: medium, max 50 findings). ' +
+        'Returns grade, mode, severity counts, top fixes and masked findings (default min severity: medium, max 50 findings). ' +
         'Secrets are always masked; rotate any real secret.',
       inputSchema: {
         path: z.string().min(1).describe('Directory or .asar file to scan'),

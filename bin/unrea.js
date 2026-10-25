@@ -11,7 +11,7 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 const USAGE = `unrea ${packageJson.version} - see your own built app through a reverse engineer's eyes
 
 Usage:
-  unrea scan <path> [--json] [--verbose] [--fail-on critical|high|medium|none]
+  unrea scan <path> [--json] [--verbose] [--source|--build] [--fail-on critical|high|medium|none]
   unrea mcp
   unrea setup --client claude_code|codex|opencode [--dry-run] [--json]
 
@@ -23,6 +23,8 @@ Commands:
 Options:
   --json        Print machine-readable JSON (always complete)
   --verbose     List every finding in text mode (no collapsing)
+  --source      Force source-repo mode (skip node_modules, no tests.shipped)
+  --build       Force build mode (auto-detection off)
   --fail-on     Exit 1 when a finding reaches this severity (default: high)
   --client      Setup target: claude_code, codex or opencode
   --dry-run     Setup: show what would be written without writing it
@@ -36,13 +38,19 @@ function fail(message) {
 }
 
 function parseScanArgs(argv) {
-  const options = { target: null, json: false, verbose: false, failOn: 'high' };
+  const options = { target: null, json: false, verbose: false, failOn: 'high', mode: null };
   for (let i = 1; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') {
       options.json = true;
     } else if (arg === '--verbose') {
       options.verbose = true;
+    } else if (arg === '--source' || arg === '--build') {
+      const mode = arg === '--source' ? 'source' : 'build';
+      if (options.mode && options.mode !== mode) {
+        fail('use only one of --source or --build');
+      }
+      options.mode = mode;
     } else if (arg === '--fail-on') {
       const value = argv[++i];
       if (!value) fail('--fail-on needs a value');
@@ -96,7 +104,7 @@ function parseSetupArgs(argv) {
 async function runScan(options) {
   let scanResult;
   try {
-    scanResult = await scan(options.target);
+    scanResult = await scan(options.target, { mode: options.mode || undefined });
   } catch (error) {
     process.stderr.write(`unrea: ${error.message}\n`);
     process.exit(2);

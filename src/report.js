@@ -63,8 +63,8 @@ export function failsThreshold(findings, failOn = 'high') {
 /**
  * Shape the public JSON result. Keep this object exactly as documented.
  *
- * @param {{findings: Array<object>, scanned: number, durationMs: number}} scanResult
- * @returns {{grade:string, scanned:number, durationMs:number, findings:Array<object>}}
+ * @param {{findings: Array<object>, scanned: number, durationMs: number, mode?: 'build'|'source'}} scanResult
+ * @returns {{grade:string, scanned:number, durationMs:number, findings:Array<object>, mode:'build'|'source'}}
  */
 export function buildResult(scanResult) {
   return {
@@ -72,6 +72,7 @@ export function buildResult(scanResult) {
     scanned: scanResult.scanned,
     durationMs: scanResult.durationMs,
     findings: scanResult.findings,
+    mode: scanResult.mode === 'source' ? 'source' : 'build',
   };
 }
 
@@ -156,6 +157,14 @@ export function formatText(result, { target, color = false, verbose = false } = 
   const lines = [];
   lines.push(`unrea ${VERSION} - client exposure scan`);
   lines.push(`target: ${target}`);
+  if (result.mode === 'source') {
+    lines.push(
+      paint(
+        'high',
+        'WARNING: this looks like a source folder, scan your BUILD output (dist/, win-unpacked/, the installed app)',
+      ),
+    );
+  }
   lines.push(`files scanned: ${result.scanned}`);
   lines.push(`duration: ${formatDuration(result.durationMs)}`);
   const topSeverity = result.grade === 'F' ? 'critical' : result.grade === 'D' ? 'high' : result.grade === 'C' || result.grade === 'B' ? 'medium' : 'info';

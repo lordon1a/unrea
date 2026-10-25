@@ -85,7 +85,9 @@ const JWT_RE = /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}
 
 const IDENTIFIER_RE = /(secret|api[_-]?key|token|passw(or)?d|private[_-]?key)/i;
 const GENERIC_LITERAL_RE = /(['"`])((?:\\.|(?!\1)[^\\\n]){16,})\1/g;
-const ASSIGNMENT_TAIL_RE = /([A-Za-z_$][\w$.-]{0,48})\s*["']?\s*[:=]\s*["']?\s*$/;
+// Either a bare identifier (`apiKey =`, `token:`) or a quoted key (`"apiKey":`). A quote only on the
+// right side means the word ended some other string, e.g. `'...rotate secrets' : 'other'`.
+const ASSIGNMENT_TAIL_RE = /(?:(["'])([A-Za-z_$][\w$.-]{0,48})\1|(?<![\w$."'-])([A-Za-z_$][\w$.-]{0,48}))\s*[:=]\s*["']?\s*$/;
 
 /**
  * Shannon entropy in bits per character.
@@ -218,7 +220,7 @@ export function scanSecrets(text) {
     const before = source.slice(Math.max(0, literal.index - 80), literal.index);
     const assignment = ASSIGNMENT_TAIL_RE.exec(before);
     if (!assignment) continue;
-    const identifier = assignment[1];
+    const identifier = assignment[2] || assignment[3];
     if (!IDENTIFIER_RE.test(identifier)) continue;
     if (shannonEntropy(value) < 3.5) continue;
 

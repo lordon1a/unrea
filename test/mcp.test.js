@@ -77,6 +77,7 @@ test('MCP lists tools, scans, caps and keeps secrets masked', { timeout: 30000 }
   const text = toolText(scanResult);
   const payload = JSON.parse(text);
   assert.equal(payload.grade, 'F');
+  assert.equal(payload.mode, 'build');
   assert.equal(payload.scanned, 1);
   assert.equal(payload.summary.critical, 2); // env.file + secret.openai
   assert.equal(payload.truncated, false);

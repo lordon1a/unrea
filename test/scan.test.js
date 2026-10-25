@@ -80,13 +80,15 @@ test('scans a built app directory including asar contents', async (t) => {
     (f) => f.id === 'secret.aws' && f.file === 'resources/app.asar!/node_modules/vendor/index.js',
   );
   assert.ok(vendor);
-  assert.equal(vendor.severity, 'high', 'vendor critical should be downgraded one level');
+  assert.equal(vendor.severity, 'info', 'vendor provider keys are informational');
+  assert.match(vendor.snippet, /^\[vendor code\] /);
 
   const diskVendor = result.findings.find(
     (f) => f.id === 'secret.github' && f.file === 'node_modules/pkg/index.js',
   );
   assert.ok(diskVendor);
-  assert.equal(diskVendor.severity, 'high', 'vendor critical should be downgraded one level');
+  assert.equal(diskVendor.severity, 'info', 'vendor provider keys are informational');
+  assert.match(diskVendor.snippet, /^\[vendor code\] /);
 
   const shipped = byId('tests.shipped');
   assert.equal(shipped.length, 2, 'one tests.shipped per root and per asar');
@@ -117,7 +119,8 @@ test('scans a built app directory including asar contents', async (t) => {
     (f) => f.id === 'secret.aws' && f.file === 'node_modules/pkg/test/vendor.test.js',
   );
   assert.ok(vendorTestSecret);
-  assert.equal(vendorTestSecret.severity, 'high', 'node_modules test dirs are vendor, not test code');
+  assert.equal(vendorTestSecret.severity, 'info', 'node_modules test dirs are vendor, not test code');
+  assert.match(vendorTestSecret.snippet, /^\[vendor code\] /);
   assert.ok(!vendorTestSecret.snippet.startsWith('[test file'));
 
   const fuses = result.findings.filter((f) => f.id.startsWith('electron.fuses.'));
@@ -199,7 +202,8 @@ test('test-looking paths inside node_modules stay vendor code', async (t) => {
   const result = await scan(dir);
   assert.equal(result.findings.filter((f) => f.id === 'tests.shipped').length, 0);
   const secret = result.findings.find((f) => f.id === 'secret.aws');
-  assert.equal(secret.severity, 'high', 'vendor downgrade still applies');
+  assert.equal(secret.severity, 'info', 'vendor provider keys are informational');
+  assert.match(secret.snippet, /^\[vendor code\] /);
   assert.ok(!secret.snippet.startsWith('[test file'));
 });
 
@@ -236,8 +240,9 @@ test('CLI prints a graded report, JSON, and honors fail-on', async (t) => {
   const jsonRun = spawnSync(process.execPath, [cli, 'scan', dir, '--json'], { encoding: 'utf8' });
   assert.equal(jsonRun.status, 1);
   const parsed = JSON.parse(jsonRun.stdout);
-  assert.deepEqual(Object.keys(parsed), ['grade', 'scanned', 'durationMs', 'findings']);
+  assert.deepEqual(Object.keys(parsed), ['grade', 'scanned', 'durationMs', 'findings', 'mode']);
   assert.equal(parsed.grade, 'F');
+  assert.equal(parsed.mode, 'build');
   assert.ok(parsed.scanned >= 1);
   assert.ok(!jsonRun.stdout.includes(fake.openai()), 'JSON output leaked a full secret');
 

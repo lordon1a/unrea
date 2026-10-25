@@ -8,10 +8,12 @@ it lists what a curious human (or an AI agent like REA) can learn in seconds:
 leaked keys, shipped source maps, dotenv files, readable bundles, internal
 endpoints, client-side license checks, shipped tests and weak Electron fuses.
 
-v0.2 also ships an MCP server and a skill, so Claude Code, Codex and OpenCode
+v0.3 also ships an MCP server and a skill, so Claude Code, Codex and OpenCode
 can scan, understand and fix a build without leaving the agent. The scanner
 never edits the target; setup only writes the client config and skill you ask
 for, and no unrea code calls the network.
+
+Requires Node.js **22.12 or newer**.
 
 ## Use it from your AI agent
 
@@ -54,7 +56,7 @@ Stop when there are no high or critical findings.
 
 | Tool | What it does |
 | --- | --- |
-| `unrea_scan` | `{path, min_severity?, max_findings?}` → grade, severity counts, top fixes, masked findings. Defaults: medium, 50. |
+| `unrea_scan` | `{path, min_severity?, max_findings?}` → grade, mode (`build`/`source`), severity counts, top fixes, masked findings. Defaults: medium, 50. |
 | `unrea_explain` | `{id}` → what the check is, how an attacker's agent finds it, real risk and fix. Unknown ids list known ids. |
 | `unrea_fix_plan` | `{path, id}` → apply-ready fuse hook, electron-builder exclusions, source-map flags, server proxy or license outline. |
 
@@ -78,17 +80,24 @@ Options:
 
 | Option | Meaning |
 | --- | --- |
-| `--json` | Machine-readable output (always complete) |
+| `--json` | Machine-readable output (always complete; includes `mode`) |
 | `--verbose` | List every finding in text mode (no collapsing or 5-row cap) |
+| `--source` | Force source-repo mode: skip `node_modules`, no `tests.shipped`, print a warning |
+| `--build` | Force build mode even if the folder looks like a source repo |
 | `--fail-on critical\|high\|medium\|none` | Exit 1 when a finding reaches this level (default `high`) |
 
 Exit codes: `0` clean (or below threshold), `1` threshold reached, `2` bad
 usage or unreadable path. Secrets are always masked in text and JSON output.
 
+If the target looks like a source repo (`package.json` plus `src/`, `test/` or
+`.git`, with no build artifact at the root), unrea warns you to scan the build
+output instead. In that mode it skips `node_modules` and does not emit
+`tests.shipped`. Force it with `--source`, or disable detection with `--build`.
+
 ### Sample output
 
 ```text
-unrea 0.2.0 - client exposure scan
+unrea 0.3.0 - client exposure scan
 target: dist
 files scanned: 664
 duration: 812 ms
@@ -151,6 +160,11 @@ Test paths (`test/`, `tests/`, `__tests__/`, `e2e/`, `spec/`, `*.test.*`,
 emits one `tests.shipped` finding per asar/root, and secret findings inside
 those files stay visible but drop to info with a `[test file, likely fixture]`
 prefix, so fixtures do not decide the grade.
+
+Provider keys and PEM headers inside `node_modules` or any `vendor/` path are
+reported as info with a `[vendor code]` prefix. Vendor paths also skip
+`code.readable` and downgrade `sourcemap.comment`, since that is third-party
+code rather than yours.
 
 ## Honest limits
 

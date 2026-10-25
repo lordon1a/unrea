@@ -10,7 +10,7 @@ const MAX_AVERAGE_LINE = 200;
  * @returns {Array<object>}
  */
 export function run(file) {
-  if (file.kind !== 'text' || file.ext !== '.js' || file.inNodeModules) return [];
+  if (file.kind !== 'text' || file.ext !== '.js' || file.inVendor || file.inNodeModules) return [];
   if (file.size <= MIN_SIZE) return [];
 
   const newlines = (file.text.match(/\n/g) || []).length;

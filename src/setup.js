@@ -1,15 +1,19 @@
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const SKILL_SOURCE = fileURLToPath(new URL('../skill/unrea/SKILL.md', import.meta.url));
 const CLIENTS = new Set(['claude_code', 'codex', 'opencode']);
+const PACKAGE_NAME = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).name;
 
 export const SETUP_CLIENTS = [...CLIENTS];
 
 function mcpCommand(version) {
-  return ['npx', '-y', `@yigitguldal/unrea@${version}`, 'mcp'];
+  return ['npx', '-y', `${PACKAGE_NAME}@${version}`, 'mcp'];
 }
 
 async function exists(filePath) {
@@ -75,7 +79,7 @@ async function claudeSetup(home, version, dryRun) {
     ),
     notes: [
       'Claude Code registration is manual: run the printed claude command once.',
-      'To track the latest release instead of pinning, use: claude mcp add unrea -- npx -y @yigitguldal/unrea mcp',
+      `To track the latest release instead of pinning, use: claude mcp add unrea -- npx -y ${PACKAGE_NAME} mcp`,
     ],
   };
 }

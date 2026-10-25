@@ -120,3 +120,16 @@ test('.env snippet never echoes a value the entropy check would miss', async (t)
   assert.ok(!envFinding.snippet.includes(value), 'dotenv value leaked in the snippet');
   assert.match(envFinding.snippet, /^PASSWORD=/);
 });
+
+test('generic rule reads bare and quoted keys, not words that end another string', async (t) => {
+  const value = ['Xk29fLq0', 'Zp81Wm3N', 'v7Rt'].join('');
+  const other = ['Zq81Lm0P', 'w2Ks9Dm4', 'Vb6YxYz'].join('');
+  const text = [
+    `const apiKey = "${value}";`,
+    `const c = {"token": "${value}"};`,
+    `const t = cond ? "rotate the secrets" : "${other}";`,
+  ].join('\n');
+  const { result } = await scanText(t, 'app/main.js', text);
+  const lines = result.findings.filter((f) => f.id === 'secret.generic').map((f) => f.line);
+  assert.deepEqual(lines, [1, 2]);
+});

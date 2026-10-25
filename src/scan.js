@@ -53,6 +53,68 @@ function isVendor(displayPath) {
   return /(^|[\\/])node_modules[\\/]/.test(displayPath);
 }
 
+function pathSegments(displayPath) {
+  return displayPath.split(/[!/\\]/).filter(Boolean);
+}
+
+function isVendorDirectory(displayPath) {
+  return pathSegments(displayPath).some((part) => part.toLowerCase() === 'vendor');
+}
+
+function isVendorPath(displayPath) {
+  return isVendor(displayPath) || isVendorDirectory(displayPath);
+}
+
+function isVendorProviderSecret(id) {
+  return id.startsWith('secret.') && id !== 'secret.generic';
+}
+
+async function isDirectory(filePath) {
+  try {
+    return (await fsp.stat(filePath)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A source repo has package.json plus a source marker at its root and no
+ * build artifact at the root.
+ *
+ * @param {string} root
+ * @param {import('node:fs').Stats} stat
+ * @returns {Promise<'build'|'source'>}
+ */
+async function detectScanMode(root, stat) {
+  if (!stat.isDirectory()) return 'build';
+
+  const packagePath = path.join(root, 'package.json');
+  try {
+    if (!(await fsp.stat(packagePath)).isFile()) return 'build';
+  } catch {
+    return 'build';
+  }
+
+  const markers = await Promise.all(
+    ['.git', 'src', 'test'].map((name) => isDirectory(path.join(root, name))),
+  );
+  if (!markers.some(Boolean)) return 'build';
+
+  let entries;
+  try {
+    entries = await fsp.readdir(root, { withFileTypes: true });
+  } catch {
+    return 'source';
+  }
+
+  const hasBuildArtifact = entries.some(
+    (entry) =>
+      (entry.isDirectory() && entry.name.toLowerCase() === 'win-unpacked') ||
+      (entry.isFile() && /\.(?:asar|exe)$/i.test(entry.name)),
+  );
+  return hasBuildArtifact ? 'build' : 'source';
+}
+
 /**
  * Is this a shipped test/spec file? Path-based, and never true inside
  * node_modules (vendor test files are not our test code).
@@ -139,9 +201,10 @@ async function extractAsar(asarPath, destDir) {
  * Scan a directory or a single .asar/.js/.exe file.
  *
  * @param {string} targetPath
- * @returns {Promise<{findings: Array<object>, scanned: number, durationMs: number}>}
+ * @param {{mode?: 'build'|'source'}} [options]
+ * @returns {Promise<{findings: Array<object>, scanned: number, durationMs: number, mode: 'build'|'source'}>}
  */
-export async function scan(targetPath) {
+export async function scan(targetPath, options = {}) {
   const started = Date.now();
   const root = path.resolve(targetPath);
   let stat;
@@ -152,8 +215,14 @@ export async function scan(targetPath) {
     throw new Error(`cannot read "${targetPath}": ${reason}`);
   }
 
+  const mode =
+    options.mode === 'source' || options.mode === 'build'
+      ? options.mode
+      : await detectScanMode(root, stat);
+
   const rootLabel = path.basename(root) || root;
   const state = {
+    mode,
     findings: [],
     scanned: 0,
     temps: [],
@@ -174,11 +243,24 @@ export async function scan(targetPath) {
       if (!result || !result.id) continue;
       let severity = file.inNodeModules ? downgrade(result.severity) : result.severity;
       let snippet = result.snippet ?? '';
+      const prefixes = [];
+
+      if (file.inVendor && isVendorProviderSecret(result.id)) {
+        // Provider regexes and PEM headers in vendor bundles are usually
+        // library test data or public constants, not live credentials.
+        severity = 'info';
+        prefixes.push('[vendor code]');
+      }
       if (file.isTest && result.id.startsWith('secret.')) {
         // A fixture key is still worth showing, but it is not a live leak.
         severity = 'info';
-        snippet = `[test file, likely fixture] ${snippet}`;
+        prefixes.push('[test file, likely fixture]');
       }
+      if (file.inVendor && result.id === 'sourcemap.comment') {
+        severity = downgrade(severity);
+      }
+      if (prefixes.length) snippet = `${prefixes.join(' ')} ${snippet}`;
+
       state.findings.push({
         id: result.id,
         severity,
@@ -220,6 +302,7 @@ export async function scan(targetPath) {
       size: buffer.length,
       text,
       inNodeModules: isVendor(displayPath),
+      inVendor: isVendorPath(displayPath),
       isTest,
     });
   };
@@ -234,6 +317,7 @@ export async function scan(targetPath) {
       size: 0,
       text: '',
       inNodeModules: isVendor(displayPath),
+      inVendor: isVendorPath(displayPath),
     });
   };
 
@@ -250,6 +334,9 @@ export async function scan(targetPath) {
       const absPath = path.join(dirAbs, entry.name);
       const displayPath = `${displayBase}${entry.name}`;
       if (entry.isDirectory()) {
+        if (state.mode === 'source' && entry.name.toLowerCase() === 'node_modules') {
+          continue;
+        }
         await walkDirectory(absPath, `${displayPath}/`, depth, state);
       } else if (entry.isFile()) {
         await handleFile(absPath, displayPath, depth, state);
@@ -273,6 +360,7 @@ export async function scan(targetPath) {
       size,
       text: '',
       inNodeModules: isVendor(displayPath),
+      inVendor: isVendorPath(displayPath),
     });
 
     if (depth >= MAX_ASAR_DEPTH) return;
@@ -334,16 +422,18 @@ export async function scan(targetPath) {
     await Promise.all(state.temps.map(removeQuietly));
   }
 
-  for (const [container, info] of state.testContainers) {
-    const noun = info.count === 1 ? 'test file ships' : 'test files ship';
-    state.findings.push({
-      id: 'tests.shipped',
-      severity: 'high',
-      file: container || rootLabel,
-      line: null,
-      snippet: `${info.count} ${noun} in the build (e.g. ${info.example})`,
-      fix: 'exclude test folders from the package (electron-builder `files` / .npmignore)',
-    });
+  if (state.mode !== 'source') {
+    for (const [container, info] of state.testContainers) {
+      const noun = info.count === 1 ? 'test file ships' : 'test files ship';
+      state.findings.push({
+        id: 'tests.shipped',
+        severity: 'high',
+        file: container || rootLabel,
+        line: null,
+        snippet: `${info.count} ${noun} in the build (e.g. ${info.example})`,
+        fix: 'exclude test folders from the package (electron-builder `files` / .npmignore)',
+      });
+    }
   }
 
   const seen = new Set();
@@ -368,5 +458,6 @@ export async function scan(targetPath) {
     findings,
     scanned: state.scanned,
     durationMs: Date.now() - started,
+    mode: state.mode,
   };
 }
