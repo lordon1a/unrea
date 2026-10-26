@@ -30,12 +30,14 @@ async function scanPayload({ path, min_severity = 'medium', max_findings = 50 })
   );
   const capped = filtered.slice(0, max_findings);
   const counts = countBySeverity(result.findings);
+  const accepted = result.findings.filter((finding) => finding.accepted).length;
 
   return {
     grade: result.grade,
     mode: result.mode,
     surfaces: result.surfaces,
     scanned: result.scanned,
+    accepted,
     summary: {
       critical: counts.critical,
       high: counts.high,
@@ -43,6 +45,7 @@ async function scanPayload({ path, min_severity = 'medium', max_findings = 50 })
       info: counts.info,
     },
     top_fixes: topFixes(result.findings, 3),
+    ...(scanResult.accept?.warnings?.length ? { warnings: scanResult.accept.warnings } : {}),
     findings: capped,
     truncated: filtered.length > capped.length,
   };
@@ -63,6 +66,7 @@ export function createMcpServer() {
       description:
         'Scan a directory, win-unpacked folder or .asar file from a built Electron/JS app. ' +
         'Returns grade, mode, severity counts, top fixes and masked findings (default min severity: medium, max 50 findings). ' +
+        'Accepted findings carry accepted: true and reason and do not affect the grade. ' +
         'Secrets are always masked; rotate any real secret.',
       inputSchema: {
         path: z.string().min(1).describe('Directory or .asar file to scan'),

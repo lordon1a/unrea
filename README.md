@@ -81,7 +81,8 @@ Stop when there are no high or critical findings.
 
 `unrea_scan` honors `min_severity` and `max_findings` for the `findings` array;
 `summary`, `grade` and `top_fixes` always describe the full scan. Secrets stay
-masked in MCP JSON, just like `--json`.
+masked in MCP JSON, just like `--json`. Accepted findings keep
+`accepted: true` and `reason`, and the payload reports how many were accepted.
 
 The skill is bundled at `skill/unrea/SKILL.md`; it tells the agent the rules to
 follow while writing code and the release loop above.
@@ -104,6 +105,10 @@ Options:
 | `--source` | Force source-repo mode: skip `node_modules`, no `tests.shipped`, print a warning |
 | `--build` | Force build mode even if the folder looks like a source repo |
 | `--fail-on critical\|high\|medium\|none` | Exit 1 when a finding reaches this level (default `high`) |
+| `--config <file>` | Accept list file (default: `.unrea.json` in the target, then the current directory) |
+| `--sarif <file>` | Write a SARIF 2.1.0 report for GitHub code scanning |
+| `--badge <file>` | Write a shields.io endpoint JSON badge |
+| `--summary <file>` | Write a GitHub job summary; appends to `$GITHUB_STEP_SUMMARY` when the flag is omitted |
 
 Exit codes: `0` clean (or below threshold), `1` threshold reached, `2` bad
 usage or unreadable path. Secrets are always masked in text and JSON output.
@@ -201,6 +206,102 @@ Surfaces are auto-detected; `unrea_surfaces` (MCP) lists them. Each one adds its
 When two surfaces see the same file, the more specific one owns it. Unity owns
 `*_Data/Managed`, `MonoBleedingEdge/` and its engine DLLs, so you don't get
 generic noise about Unity's own files. Secrets are always reported.
+
+## Accepting a finding
+
+Some findings are deliberate: a fuse your hooks depend on, a source map you
+publish, a test fixture that really ships. Record that decision in
+`.unrea.json` in the scanned target (or the current directory), or pass
+`--config <file>`:
+
+```json
+{
+  "accept": [
+    {
+      "id": "electron.fuses.run_as_node",
+      "reason": "hooks need ELECTRON_RUN_AS_NODE",
+      "path": "**/app.exe"
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `id` | Check id, or a family wildcard such as `secret.*` or `electron.fuses.*` |
+| `reason` | Required. Why the finding is acceptable; a missing or empty reason fails the scan with a clear error |
+| `path` | Optional glob over the finding location (`**/app.exe`, `dist/*.map`) |
+
+- Accepted findings stay in `--json` with `accepted: true` and `reason`; text
+  mode lists them under `ACCEPTED (n)`, one line each.
+- They do not affect the grade and never trip `--fail-on`.
+- A critical secret (`secret.*`) can never be accepted: unrea warns and keeps
+  counting it. Rotate the key instead; a reason does not make it safe.
+- MCP `unrea_scan` applies the same file and reports the accepted count.
+
+## CI / GitHub Action
+
+```yaml
+name: unrea
+on: [push, pull_request]
+permissions:
+  contents: read
+  security-events: write
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && npm run build
+      - id: unrea
+        uses: lordon1a/unrea@v1
+        with:
+          path: dist/win-unpacked
+          fail-on: high
+      - if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: unrea.sarif
+      - run: echo "unrea grade ${{ steps.unrea.outputs.grade }}"
+```
+
+Inputs: `path` (required), `fail-on` (default `high`), `version` (default
+`latest`), `sarif` (default `unrea.sarif`). The action sets up Node 22, runs
+`npx -y @yigitguldal/unrea@<version> scan`, writes the SARIF report and the job
+summary, and exposes `outputs.grade`.
+
+Run the same pipeline outside Actions:
+
+```bash
+npx @yigitguldal/unrea scan ./dist --sarif unrea.sarif --summary report.md --badge unrea-badge.json
+```
+
+SARIF levels: critical/high → `error`, medium → `warning`, info → `note`.
+Accepted findings appear as suppressed results, so code scanning dismisses them
+with the reason you gave.
+
+### Badge
+
+`--badge` writes a shields.io endpoint document:
+
+```json
+{ "schemaVersion": 1, "label": "unrea", "message": "grade A", "color": "brightgreen" }
+```
+
+Commit it, or upload it to a gist, then embed the endpoint:
+
+```md
+![unrea grade](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/<owner>/<repo>/<branch>/unrea-badge.json)
+```
+
+For a gist use
+`https://gist.githubusercontent.com/<user>/<gist-id>/raw/unrea-badge.json`.
+Colors: A `brightgreen`, B `green`, C `yellow`, D `orange`, F `red`. If CI
+writes the badge, a later step can commit it or push it to the gist so the
+badge follows the default branch; a gist keeps the repo clean.
 
 ## Honest limits
 

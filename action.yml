@@ -1,0 +1,61 @@
+name: unrea
+description: Scan a built app for client-side exposure, write SARIF and a job summary
+author: lordon1a
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  path:
+    description: Directory (dist/, win-unpacked/), installed app folder or .asar file to scan
+    required: true
+  fail-on:
+    description: Fail the job when a finding reaches this severity (critical, high, medium or none)
+    required: false
+    default: high
+  version:
+    description: unrea version or dist-tag to run
+    required: false
+    default: latest
+  sarif:
+    description: Where to write the SARIF report
+    required: false
+    default: unrea.sarif
+
+outputs:
+  grade:
+    description: Letter grade from the scan (A, B, C, D or F)
+    value: ${{ steps.scan.outputs.grade }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Scan with unrea
+      id: scan
+      shell: bash
+      env:
+        UNREA_VERSION: ${{ inputs.version }}
+        UNREA_PATH: ${{ inputs.path }}
+        UNREA_FAIL_ON: ${{ inputs.fail-on }}
+        UNREA_SARIF: ${{ inputs.sarif }}
+      run: |
+        set -uo pipefail
+
+        args=(scan "${UNREA_PATH}" --json --fail-on "${UNREA_FAIL_ON}" --sarif "${UNREA_SARIF}" --badge unrea-badge.json)
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          args+=(--summary "${GITHUB_STEP_SUMMARY}")
+        fi
+
+        status=0
+        npx -y "@yigitguldal/unrea@${UNREA_VERSION}" "${args[@]}" > unrea.json || status=$?
+
+        grade=$(node -e "try { process.stdout.write(require('./unrea.json').grade) } catch { process.stdout.write('') }")
+        echo "grade=${grade}" >> "$GITHUB_OUTPUT"
+        echo "unrea grade: ${grade}"
+
+        exit "$status"

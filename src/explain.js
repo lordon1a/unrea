@@ -18,6 +18,25 @@ const FAMILY_ALIASES = {
 };
 
 /**
+ * Resolve a concrete check id to its explain entry, falling back to the
+ * family entry (`secret.openai` -> `secret.*`).
+ *
+ * @param {string} id
+ * @returns {object|null}
+ */
+export function explainEntry(id) {
+  const key = FAMILY_ALIASES[id] || id;
+  if (entries.has(key)) return entries.get(key) || null;
+
+  const parts = id.split('.');
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const family = `${parts.slice(0, i).join('.')}.*`;
+    if (entries.has(family)) return entries.get(family) || null;
+  }
+  return null;
+}
+
+/**
  * @param {string} id
  * @returns {string}
  */

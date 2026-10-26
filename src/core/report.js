@@ -75,6 +75,7 @@ export function topFixes(findings, limit = 3) {
   const seen = new Set();
   const fixes = [];
   for (const finding of sorted) {
+    if (finding.accepted) continue;
     const fix = (finding.fix || '').trim();
     if (!fix || seen.has(fix)) continue;
     seen.add(fix);
@@ -108,6 +109,8 @@ function summaryLines(counts, findings) {
  * @returns {string}
  */
 export function formatText(result, { target, color = false, verbose = false } = {}) {
+  const counted = result.findings.filter((finding) => !finding.accepted);
+  const accepted = result.findings.filter((finding) => finding.accepted);
   const counts = countBySeverity(result.findings);
   const paint = (severity, text) =>
     color ? `${ANSI[severity] || ''}${text}${ANSI.reset}` : text;
@@ -131,46 +134,58 @@ export function formatText(result, { target, color = false, verbose = false } = 
   lines.push(`grade: ${paint(topSeverity, result.grade)} (${gradeDetail(result.grade, counts)})`);
   lines.push('');
 
-  if (!result.findings.length) {
-    lines.push('No findings. Nothing obvious from the outside - not a guarantee.');
+  if (!counted.length) {
+    lines.push(
+      accepted.length
+        ? 'No findings count toward the grade; accepted findings are listed below.'
+        : 'No findings. Nothing obvious from the outside - not a guarantee.',
+    );
     lines.push('');
-    lines.push(...summaryLines(counts, result.findings));
-    return `${lines.join('\n')}\n`;
-  }
+  } else {
+    for (const severity of SEVERITIES) {
+      const group = counted.filter((finding) => finding.severity === severity);
+      if (!group.length) continue;
 
-  for (const severity of SEVERITIES) {
-    const group = result.findings.filter((finding) => finding.severity === severity);
-    if (!group.length) continue;
+      if (severity === 'info' && !verbose) {
+        for (const [id, items] of groupById(group)) {
+          lines.push(`  ${paint('info', 'INFO')}  ${id} x${items.length} (e.g. ${findingLocation(items[0])})`);
+        }
+        lines.push('');
+        continue;
+      }
 
-    if (severity === 'info' && !verbose) {
-      for (const [id, items] of groupById(group)) {
-        lines.push(`  ${paint('info', 'INFO')}  ${id} x${items.length} (e.g. ${findingLocation(items[0])})`);
+      lines.push(paint(severity, `${severity.toUpperCase()} (${group.length})`));
+      for (const items of groupById(group).values()) {
+        const shown = verbose ? items : items.slice(0, 5);
+        for (const finding of shown) {
+          const location = findingLocation(finding);
+          const label = severity.toUpperCase().padEnd(8);
+          const detail = finding.snippet ? `  ${finding.snippet}` : '';
+          lines.push(
+            color
+              ? `  ${paint(severity, label)} ${location}${detail}`
+              : `  ${label} ${location}${detail}`,
+          );
+          lines.push(`    ${dim('fix:')} ${finding.fix}`);
+        }
+        if (!verbose && items.length > 5) {
+          lines.push(`  ... and ${items.length - 5} more (use --verbose)`);
+        }
       }
       lines.push('');
-      continue;
     }
+  }
 
-    lines.push(paint(severity, `${severity.toUpperCase()} (${group.length})`));
-    for (const items of groupById(group).values()) {
-      const shown = verbose ? items : items.slice(0, 5);
-      for (const finding of shown) {
-        const location = findingLocation(finding);
-        const label = severity.toUpperCase().padEnd(8);
-        const detail = finding.snippet ? `  ${finding.snippet}` : '';
-        lines.push(
-          color
-            ? `  ${paint(severity, label)} ${location}${detail}`
-            : `  ${label} ${location}${detail}`,
-        );
-        lines.push(`    ${dim('fix:')} ${finding.fix}`);
-      }
-      if (!verbose && items.length > 5) {
-        lines.push(`  ... and ${items.length - 5} more (use --verbose)`);
-      }
+  if (accepted.length) {
+    lines.push(`ACCEPTED (${accepted.length})`);
+    for (const finding of accepted) {
+      lines.push(
+        `  ${finding.id}  ${findingLocation(finding)}  reason: ${finding.reason || 'accepted'}`,
+      );
     }
     lines.push('');
   }
 
-  lines.push(...summaryLines(counts, result.findings));
+  lines.push(...summaryLines(counts, counted));
   return `${lines.join('\n')}\n`;
 }

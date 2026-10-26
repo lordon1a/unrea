@@ -1,3 +1,4 @@
+import { applyAcceptList, loadAcceptConfig } from './core/accept.js';
 import { normalizeFinding } from './core/findings.js';
 import { SEVERITY_WEIGHT } from './core/grade.js';
 import { detectSurfaces } from './core/surfaces.js';
@@ -7,11 +8,15 @@ import { createScanContext } from './core/walk.js';
  * Scan a directory or a single .asar/.js/.exe file.
  *
  * @param {string} targetPath
- * @param {{mode?: 'build'|'source'}} [options]
- * @returns {Promise<{findings: Array<object>, scanned: number, durationMs: number, mode: 'build'|'source', surfaces: string[]}>}
+ * @param {{mode?: 'build'|'source', config?: string}} [options]
+ * @returns {Promise<{findings: Array<object>, scanned: number, durationMs: number, mode: 'build'|'source', surfaces: string[], engine?: object, accept?: {file:string, accepted:number, warnings:string[]}}>}
  */
 export async function scan(targetPath, options = {}) {
   const started = Date.now();
+  const acceptConfig = await loadAcceptConfig({
+    target: targetPath,
+    configPath: options.config || null,
+  });
   const { context, cleanup } = await createScanContext(targetPath, options);
 
   try {
@@ -69,13 +74,24 @@ export async function scan(targetPath, options = {}) {
         a.id.localeCompare(b.id),
     );
 
+    const applied = applyAcceptList(findings, acceptConfig.entries);
+
     return {
-      findings,
+      findings: applied.findings,
       scanned: context.scanned,
       durationMs: Date.now() - started,
       mode: context.mode,
       surfaces,
       engine,
+      ...(acceptConfig.file
+        ? {
+            accept: {
+              file: acceptConfig.file,
+              accepted: applied.accepted,
+              warnings: applied.warnings,
+            },
+          }
+        : {}),
     };
   } finally {
     await cleanup();

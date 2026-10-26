@@ -36,12 +36,16 @@ export function grade(findings) {
 }
 
 /**
+ * Accepted findings stay in the report for the reader, but they are an
+ * explicit decision: they must not lower the grade or trip --fail-on.
+ *
  * @param {Array<{severity:string}>} findings
  * @returns {{critical:number,high:number,medium:number,info:number}}
  */
 export function countBySeverity(findings) {
   const counts = { critical: 0, high: 0, medium: 0, info: 0 };
   for (const finding of findings) {
+    if (finding.accepted) continue;
     if (counts[finding.severity] !== undefined) counts[finding.severity] += 1;
   }
   return counts;
@@ -58,5 +62,7 @@ export function failsThreshold(findings, failOn = 'high') {
   if (failOn === 'none') return false;
   const threshold = SEVERITY_WEIGHT[failOn];
   if (!threshold) return false;
-  return findings.some((finding) => (SEVERITY_WEIGHT[finding.severity] || 0) >= threshold);
+  return findings.some(
+    (finding) => !finding.accepted && (SEVERITY_WEIGHT[finding.severity] || 0) >= threshold,
+  );
 }

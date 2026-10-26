@@ -112,6 +112,35 @@ test('MCP lists tools, scans, caps and keeps secrets masked', { timeout: 30000 }
   assert.ok(critical.findings.every((finding) => finding.severity === 'critical'));
 });
 
+test('MCP scan passes accepted findings through', { timeout: 30000 }, async (t) => {
+  const dir = await makeTemp('unrea-mcp-accept-');
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  await writeAt(dir, 'app.js.map', '{"version":3}\n');
+  await writeAt(
+    dir,
+    '.unrea.json',
+    JSON.stringify({ accept: [{ id: 'sourcemap.file', reason: 'maps hosted separately' }] }),
+  );
+
+  const client = await connect(t);
+  const payload = JSON.parse(
+    toolText(
+      await client.callTool({
+        name: 'unrea_scan',
+        arguments: { path: dir, min_severity: 'info' },
+      }),
+    ),
+  );
+
+  const finding = payload.findings.find((entry) => entry.id === 'sourcemap.file');
+  assert.ok(finding);
+  assert.equal(finding.accepted, true);
+  assert.equal(finding.reason, 'maps hosted separately');
+  assert.equal(payload.accepted, 1);
+  assert.equal(payload.grade, 'A');
+  assert.equal(payload.summary.high, 0);
+});
+
 test('MCP explains known ids and lists known ids for unknown ones', { timeout: 30000 }, async (t) => {
   const client = await connect(t);
 
